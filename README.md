@@ -203,3 +203,32 @@ host_key_checking = false
 ```
 4) Save and exit -> `CTRL + x` -> `y` -> `ENTER`
 * You should now be able to ping the web node and receive a positive pong response
+## modules
+* Ping command tries to SSH in and checks the status code
+* If status code is 200, gives response pong
+* If the code is anything else, it gives the reason
+* sudo ansible web -a "uname -a" -> runs uname -a in the target VE using ansible, in this case web
+* sudo ansible web -a "date" -> prints the date of the target nodes location
+* sudo ansible all -a "free -m" -> prints the availalble hardrive space in all VEs
+*  sudo ansible all -a "ls -a" -> prints hidden files in target VE
+* sudo ansible all -a "uptime"
+* ansible web -m ansible.builtin.copy -a "src=test.txt dest=test.txt"
+
+## AD hock benefit
+
+
+## Provisioning with YAMAL
+
+![](images/ansible_structure2.png)
+
+### Requirements- db
+1) Install mongodb
+2) Configure mongodb
+### Requirements- web
+1) Install nginx 
+2) Configure reverse proxy
+3) Install nodejs
+4) Install pm2
+5) install npm
+6) Make a persistent environmental variable with db ip
+7) Seed the database
