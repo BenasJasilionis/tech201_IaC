@@ -1,0 +1,70 @@
+---
+- hosts: web
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Install nginx
+    apt: pkg=nginx state=present
+
+  - name: Disable nginx Default Virtual Host
+    become: yes
+    ansible.legacy.command:
+     cmd: unlink /etc/nginx/sites-enabled/default
+
+  - name: Create nginx conf file
+    become: yes
+    file:
+      path: /etc/nginx/sites-available/node_proxy.conf
+      state: touch
+
+  - name: Amend nginx conf file
+    become: yes
+    blockinfile:
+     path: /etc/nginx/sites-available/node_proxy.conf
+     marker: ""
+     block: |
+       server {
+           listen 80;
+           location / {
+                proxy_pass http://192.168.33.10:3000;
+            }
+        }
+
+  - name: Add environmental variable
+    shell: echo 'DB_HOST="mongodb://192.168.33.11:27017/posts"' >> /etc/environment
+    args:
+      executable: /bin/bash
+
+  - name: Link nginx Node Reverse Proxy
+    become: yes
+    command:
+      cmd: ln -s /etc/nginx/sites-available/node_proxy.conf /etc/nginx/sites-enabled/node_proxy.conf
+
+  - name: Make sure NGINX service is running
+    become: yes
+    service:
+      name: nginx
+      state: restarted
+      enabled: yes
+
+  - name: Install node
+    register: out
+
+    shell: |
+      sudo apt update && sudo apt upgrade
+      cd /home/repo/app
+      sudo apt -y install curl dirmngr apt-transport-https lsb-release ca-certificates
+      curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+      sudo apt update
+      sudo apt -y install nodejs 
+      sudo npm install pm2 -g
+  - name: Start the app
+    shell: |
+      cd /home/repo/app    
+      node seeds/seed.js
+      npm install
+      pm2 kill
+      pm2 start app.js
+      printenv DB_HOST
+  - debug: var=out.stdout_lines

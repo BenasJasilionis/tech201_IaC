@@ -213,11 +213,12 @@ host_key_checking = false
 *  sudo ansible all -a "ls -a" -> prints hidden files in target VE
 * sudo ansible all -a "uptime"
 * ansible web -m ansible.builtin.copy -a "src=test.txt dest=test.txt"
+* sudo ansible web -a "systemctl status nginx"
 
 ## AD hock benefit
 
 
-## Provisioning with YAMAL
+## Provisioning with YAML
 
 ![](images/ansible_structure2.png)
 
@@ -232,3 +233,9 @@ host_key_checking = false
 5) install npm
 6) Make a persistent environmental variable with db ip
 7) Seed the database
+
+* sudo nano nginx-playbook.yml
+* states -> state=present, state=absent
+* Run the playbook -> sudo ansible-playbook `<playbook_name>`
+* Provisioning can only be used for 1 machine, playbooks can be used in any number of machines
+* sudo ansible -m ping web/db
