@@ -142,3 +142,64 @@ ssh vagrant@192.168.33.10
 ## Additional information
 * Inside the controller VE where ansible is installed, the absolute oath is /etc/ansible
 * This will have both the `hosts` and `ansible.conf` files
+
+## Ansible
+* Adhock commands can be used from the control manager (ansible terminal) to interact with agent nodes
+* Can use ad-hock commands
+* Scripts in ansible are called playbooks, and they are written in YAMAL language
+* ` Vagrant status` -> outputs running state of every machine
+* ` sudo apt update && upgrade -y` -> runs update and upgrade consequtively
+* Can SSH into all 3 machines from local machine, that means communication is effective
+* Now want to SSH into nodes from controller
+* `
+* Controller runs requist to web node
+* Key wont match because key it isn't copied
+* Need
+1) On the controller VE, navigate to /etc/ansible
+2) Edit the host file to allow the web machine:
+```
+192.168.33.10 ansible_connection=ssh ansible_ssh_user=vagrant ansible_ssh_pass=vagrant
+```
+3) Should now be able to run:
+```
+sudo ansible -m ping web
+```
+* This should return a positive `pong` response, which means that the two machines can communicate
+## Potential blockers - Fail to use ssh key
+* On the web VE:
+1) Navigate to ssh folder:
+```
+cd /etc/ssh
+```
+2) Edit the sshd_config file:
+```
+sudo nano sshd_config
+```
+3) Make sure the following lines are uncommented, if they are not in the file add them:
+* PermitRootLogin prohibit-password
+* PasswordAuthentication yes
+* ChallengeResponseAuthentication no
+* UsePAM yes
+* X11Forwarding yes
+* PrintMotd no
+* AcceptEnv LANG LC_*
+* Subsystem       sftp    /usr/lib/openssh/sftp-server
+* UseDNS no
+* GSSAPIAuthentication no
+4) Save and exit -> `CTRL + x` -> `y` -> `ENTER`
+5) Restart ssh to save the changes:
+```
+sudo systemctl restart ssh
+```
+* On the controller VE:
+1) Navigate to /etc/ansible
+2) Edit the ansible.cfg file:
+```
+sudo nano ansible.cfg
+```
+3) Under [default], add the following line:
+```
+host_key_checking = false
+```
+4) Save and exit -> `CTRL + x` -> `y` -> `ENTER`
+* You should now be able to ping the web node and receive a positive pong response
