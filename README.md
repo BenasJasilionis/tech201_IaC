@@ -41,7 +41,6 @@
 * Home office
 * Sky
 * Banking
-* sudo ansible -m ping web/all
 
 ![](images/ansible_structure.png)
 
