@@ -32,7 +32,7 @@
         }
 
   - name: Add environmental variable
-    shell: echo 'DB_HOST="mongodb://192.168.33.11:27017/posts"' >> /etc/environment
+    shell:  echo 'export DB_HOST="mongodb://192.168.33.11:27017/posts"' >> ~/.bashrc && source .bashrc
     args:
       executable: /bin/bash
 
@@ -41,7 +41,7 @@
     command:
       cmd: ln -s /etc/nginx/sites-available/node_proxy.conf /etc/nginx/sites-enabled/node_proxy.conf
 
-  - name: Make sure NGINX service is running
+  - name: Make sure nginx service is running
     become: yes
     service:
       name: nginx

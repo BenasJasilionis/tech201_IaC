@@ -133,7 +133,7 @@ sudo apt install ansible -y
 ```
 5) Check the ansible version
 ```
-ansible --v
+ansible --version
 ```
 6) SSH into web VE from controller, the numbers after @ are the ip for the web VE:
 ``` 
@@ -203,8 +203,8 @@ host_key_checking = false
 ```
 4) Save and exit -> `CTRL + x` -> `y` -> `ENTER`
 * You should now be able to ping the web node and receive a positive pong response
-## modules
-* Ping command tries to SSH in and checks the status code
+## Ad hoc commands
+* Ping command tries to SSH in and checks the status code -> `sudo ansible -m ping web/db`
 * If status code is 200, gives response pong
 * If the code is anything else, it gives the reason
 * sudo ansible web -a "uname -a" -> runs uname -a in the target VE using ansible, in this case web
@@ -214,10 +214,6 @@ host_key_checking = false
 * sudo ansible all -a "uptime"
 * ansible web -m ansible.builtin.copy -a "src=test.txt dest=test.txt"
 * sudo ansible web -a "systemctl status nginx"
-
-## AD hock benefit
-
-
 ## Provisioning with YAML
 
 ![](images/ansible_structure2.png)
@@ -239,3 +235,190 @@ host_key_checking = false
 * Run the playbook -> sudo ansible-playbook `<playbook_name>`
 * Provisioning can only be used for 1 machine, playbooks can be used in any number of machines
 * sudo ansible -m ping web/db
+
+## Setting up app and db -> configuring DB
+1) Make sure that your controller and and db agent node can communicate:
+```
+sudo ansible -m ping db
+```
+* You should see the following output:
+
+![](images/db_ping.png)
+
+2) Make a playbook file which will we used to clone the repository with the environment:
+```
+sudo nano import-db-playbook.yml
+```
+3) Inside the file, enter the following:
+```yml
+---
+- hosts: db
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Clone repository with environment folder
+    git:
+      repo: your repo https
+      dest: path where you want to clone the repo to e.g. /home/db
+      clone: yes
+      update: yes
+```
+4) Run the playbook to clone the repository into your db agent node
+```
+sudo ansible-playbook import-db-playbook.yml
+```
+5) Make a playbook to install and configure mongodb:
+```
+sudo nano db-provision-playbook.yml
+```
+6) Enter the following code into the file:
+```yml
+
+---
+
+- hosts: db
+
+  gather_facts: yes
+
+  become: true
+
+  tasks:
+  - name: install mongodb
+    apt: pkg=mongodb state=present
+
+  - name: Remove mongodb file (delete file)
+    file:
+      path: /etc/mongodb.conf
+      state: absent
+
+  - name: Touch a file, using symbolic modes to set the permissions (equivalent to 0644)
+    file:
+      path: /etc/mongodb.conf
+      state: touch
+      mode: u=rw,g=r,o=r
+
+
+  - name: Insert multiple lines and Backup
+    blockinfile:
+      path: /etc/mongodb.conf
+      block: |
+        # mongodb.conf
+        storage:
+          dbPath: /var/lib/mongodb
+          journal:
+            enabled: true
+        systemLog:
+          destination: file
+          logAppend: true
+          path: /var/log/mongodb/mongod.log
+        net:
+          port: 27017
+          bindIp: 0.0.0.0
+
+  - name: Restart mongodb
+    become: true
+    shell: systemctl restart mongodb
+
+  - name: enable mongodb
+    become: true
+    shell: systemctl enable mongodb
+
+  - name: start mongodb
+    become: true
+    shell: systemctl start mongodb
+```
+7) Run the playbook to change the mongodb configuration:
+```
+sudo ansible-playbook db-provision-playbook.yml
+```
+## Setting up app and db -> configuring web -> import repository
+1) Make sure that the controller node and the web agent node can communicate:
+```
+sudo ansible -m ping web
+```
+* You should see the following output:
+
+![](images/web_ping.png)
+
+2) Make a yaml file for our playbook which will clone our repository with our app into the web agent node:
+```
+sudo nano import-web-playbook.yml
+```
+3) Enter the following code:
+```yml
+---
+- hosts: web
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Clone repository with app folder
+    git:
+      repo: your repo https
+      dest: path where you want to clone the repo to ,e.g. /home/repo
+      clone: yes
+      update: yes
+```
+3) Run the playbook to clone the repository:
+```
+sudo ansible-playbook import-web-playbook.yml
+```
+## Setting up app and db -> configuring web -> set up nginx and reverse proxy
+1) Make a yaml file for the reverse proxy playbook:
+```
+sudo nano reverse-proxy-playbook.yml
+```
+2) Enter the following:
+```yml
+---
+- hosts: web
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Install nginx
+    apt: pkg=nginx state=present
+
+  - name: Disable nginx Default Virtual Host
+    become: yes
+    ansible.legacy.command:
+     cmd: unlink /etc/nginx/sites-enabled/default
+
+  - name: Create nginx conf file
+    become: yes
+    file:
+      path: /etc/nginx/sites-available/node_proxy.conf
+      state: touch
+
+  - name: Amend nginx conf file
+    become: yes
+    blockinfile:
+     path: /etc/nginx/sites-available/node_proxy.conf
+     marker: ""
+     block: |
+       server {
+           listen 80;
+           location / {
+                proxy_pass http://192.168.33.10:3000;
+            }
+        }
+  - name: Link nginx Node Reverse Proxy
+    become: yes
+    command:
+      cmd: ln -s /etc/nginx/sites-available/node_proxy.conf /etc/nginx/sites-enabled/node_proxy.conf
+
+  - name: Make sure nginx service is running
+    become: yes
+    service:
+      name: nginx
+      state: restarted
+      enabled: yes
+```
+3) Run the playbook to initialise the reverse proxy:
+```
+sudo ansible-playbook reverse-proxy-playbook.yml
+```
+## Setting up app and db -> configuring web -> setting up app dependencies and launching the app
+
+
