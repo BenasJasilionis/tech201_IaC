@@ -1,0 +1,12 @@
+---
+- hosts: web
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Clone repository with app folder
+    git:
+      repo: your repo https
+      dest: path where you want to clone the repo to ,e.g. /home/repo
+      clone: yes
+      update: yes

@@ -1,0 +1,12 @@
+---
+- hosts: db
+  gather_facts: yes
+  become: true
+
+  tasks:
+  - name: Clone repository with environment folder
+    git:
+      repo: your repo https
+      dest: path where you want to clone the repo to e.g. /home/db
+      clone: yes
+      update: yes

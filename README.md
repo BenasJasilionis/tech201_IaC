@@ -1,12 +1,11 @@
 ## What is Infrastructure as code (IaC)
 * Helps codify everything
 * Helps us build and delete things
-* 
 * Infrastructure as code (IaC) uses DevOps methodology and versioning with a descriptive model to define and deploy infrastructure, such as networks, virtual machines, load balancers, and connection topologies. Just as the same source code always generates the same binary, an IaC model generates the same environment every time it deploys
 * Ansible configuration management
 * Terraform orchestration
 * IaC evolved to solve the problem of environment drift in release pipelines. Without IaC, teams must maintain deployment environment settings individually. Over time, each environment becomes a "snowflake," a unique configuration that can't be reproduced automatically
-*  Inconsistency among environments can cause deployment issues. Infrastructure administration and maintenance involve manual processes that are error prone and hard to track
+* Inconsistency among environments can cause deployment issues. Infrastructure administration and maintenance involve manual processes that are error prone and hard to track
 * IaC avoids manual configuration and enforces consistency by representing desired environment states via well-documented code in formats such as JSON
 * Infrastructure deployments with IaC are repeatable and prevent runtime issues caused by configuration drift or missing dependencies. Release pipelines execute the environment descriptions and version configuration models to configure target environments. To make changes, the team edits the source, not the target
 * Idempotence, the ability of a given operation to always produce the same result, is an important IaC principle
@@ -31,7 +30,6 @@
 * Agentless -> dont need ansible installed in every agent node
 * Communicates with SSH
 * Uses python
-* 
 * Implement configuration management for IaC
 * Uses YAMAL as a language
 * Ansible is the simplest way to automate apps and IT infrastructure. Application Deployment + Configuration Management + Continuous Delivery.
@@ -140,7 +138,7 @@ ansible --version
 ssh vagrant@192.168.33.10
 ```
 ## Additional information
-* Inside the controller VE where ansible is installed, the absolute oath is /etc/ansible
+* Inside the controller VE where ansible is installed, the absolute path is /etc/ansible
 * This will have both the `hosts` and `ansible.conf` files
 
 ## Ansible
@@ -151,10 +149,9 @@ ssh vagrant@192.168.33.10
 * ` sudo apt update && upgrade -y` -> runs update and upgrade consequtively
 * Can SSH into all 3 machines from local machine, that means communication is effective
 * Now want to SSH into nodes from controller
-* `
-* Controller runs requist to web node
+* Controller runs request to web node
 * Key wont match because key it isn't copied
-* Need
+* Need to configure the web agent node ip in the control node hosts file, which has the following path: `/etc/ansible/hosts`
 1) On the controller VE, navigate to /etc/ansible
 2) Edit the host file to allow the web machine:
 ```
@@ -204,16 +201,32 @@ host_key_checking = false
 4) Save and exit -> `CTRL + x` -> `y` -> `ENTER`
 * You should now be able to ping the web node and receive a positive pong response
 ## Ad hoc commands
+
+![](images/adhoc_commands.png)
+
+* Ad hoc commands use the /usr/bin/ansible command-line tool to automate a single task on one or more managed nodes
+* The are quick and easy, but they are not reusable
 * Ping command tries to SSH in and checks the status code -> `sudo ansible -m ping web/db`
 * If status code is 200, gives response pong
 * If the code is anything else, it gives the reason
-* sudo ansible web -a "uname -a" -> runs uname -a in the target VE using ansible, in this case web
-* sudo ansible web -a "date" -> prints the date of the target nodes location
-* sudo ansible all -a "free -m" -> prints the availalble hardrive space in all VEs
-*  sudo ansible all -a "ls -a" -> prints hidden files in target VE
-* sudo ansible all -a "uptime"
-* ansible web -m ansible.builtin.copy -a "src=test.txt dest=test.txt"
-* sudo ansible web -a "systemctl status nginx"
+* `sudo ansible web -a "uname -a"` -> runs uname -a in the target VE using ansible, in this case web
+* `sudo ansible web -a "date"` -> prints the date of the target nodes location
+* `sudo ansible all -a "free -m"` -> prints the availalble hardrive space in all VEs
+* `sudo ansible all -a "ls -a"` -> prints hidden files in target VE
+* `sudo ansible all -a "uptime"` ->  prints the current time, the length of time the system has been up, the number of users online, and the load average
+* `ansible web -m ansible.builtin.copy -a "src=test.txt dest=test.txt"` -> copies a file from the controller node to the agent node
+* `sudo ansible web -a "systemctl status nginx"` -> checks the status of nginx on the web agent node
+* `sudo ansible db -a "systemctl status mongodb"` -> checks the status of mongodb on the db agent node
+## Why use ansible ad hoc commands
+* Easy way to perform quick, 1 line tasks on any number of agent nodes without ssh'ing in to each one
+## Playbooks
+* Playbooks are the ansible equivalent of shell scripts, they are files which store code and logic which can be used to execute many commands in the target group
+* Playbooks files are defined by having the `.yml` ending, e.g. `script.yml`
+* Playbooks are written in `YAML`, which stands for `Yet Another Markup Language`
+* `YAML` is a digestible data serialization language used to create configuration files (playbooks)
+* `YAML` is a strict superset of JSON
+* Because it’s a strict superset, it can do everything that JSON can and more
+* Indentation is very important in `YAML` playbooks
 ## Provisioning with YAML
 
 ![](images/ansible_structure2.png)
@@ -230,11 +243,11 @@ host_key_checking = false
 6) Make a persistent environmental variable with db ip
 7) Seed the database
 
-* sudo nano nginx-playbook.yml
+## Additional ansible information
 * states -> state=present, state=absent
-* Run the playbook -> sudo ansible-playbook `<playbook_name>`
+* Run the playbook -> sudo ansible-playbook `<playbook_name>` e.g: sudo nano nginx-playbook.yml
 * Provisioning can only be used for 1 machine, playbooks can be used in any number of machines
-* sudo ansible -m ping web/db
+* Check if control node can communicate with an agent node : `sudo ansible -m ping web/db`
 
 ## Setting up app and db -> configuring DB
 1) Make sure that your controller and and db agent node can communicate:
@@ -420,5 +433,131 @@ sudo nano reverse-proxy-playbook.yml
 sudo ansible-playbook reverse-proxy-playbook.yml
 ```
 ## Setting up app and db -> configuring web -> setting up app dependencies and launching the app
+1) Make a a yaml file which will store our playbook:
+```
+app-provision-playbook.yml
+```
+2) Enter the following code:
+```yml
+---
+- hosts: web
+  gather_facts: yes
+  become: true
+
+  tasks:
+
+  - name: Add environmental variable
+    shell:  echo 'export DB_HOST="mongodb://192.168.33.11:27017/posts"' >> ~/.bashrc && source .bashrc
+    args:
+      executable: /bin/bash
+
+  - name: Link nginx Node Reverse Proxy
+    become: yes
+    command:
+      cmd: ln -s /etc/nginx/sites-available/node_proxy.conf /etc/nginx/sites-enabled/node_proxy.conf
+
+  - name: Make sure nginx service is running
+    become: yes
+    service:
+      name: nginx
+      state: restarted
+      enabled: yes
+
+  - name: Install node
+    register: out
+
+    shell: |
+      sudo apt update && sudo apt upgrade
+      cd /home/repo/app
+      sudo apt -y install curl dirmngr apt-transport-https lsb-release ca-certificates
+      curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+      sudo apt update
+      sudo apt -y install nodejs 
+      sudo npm install pm2 -g
+  - name: Start the app
+    shell: |
+      cd /home/repo/app    
+      node seeds/seed.js
+      npm install
+      pm2 kill
+      pm2 start app.js
+      printenv DB_HOST
+  - debug: var=out.stdout_lines
+```
+3) Run the playbook to install dependencies and run the app in the background:
+```
+sudo ansible-playbook app-provision-playbook.yml
+```
+4) You should now be able to see your app with /posts in your browser, without specifying the port number:
+
+![](images/ansible_posts.png)
+
+## Potential blockers
+### Cannot GET posts
+1) `Database isnt seeding properly` -> Make sure you have `node seeds/seed.js` in your playbook and that it is running
+2) `PORT 3000 is already occupied by a root service` -> Use ad hock commands to find what the `PID` is of the process occupying port 3000, then kill that process:
+```
+sudo ansible web -a "sudo lsof -i :3000"
+```
+* Then use the pid of the process occupying port 3000 to kill it:
+```
+sudo ansible web -a "sudo kill -9 PID"
+```
+* Now try re-running the playbook (if your reverse proxy configuration is in the same playbook as your other app dependencies, you will need to comment out the reverse proxy steps if running the playbook more than once)
+### Error 502 bad gateway
+1) `nginx configuration is damaged` -> Check the nginx status:
+```
+sudo ansible web -a "systemctl status nginx"
+```
+
+![](images/nginx_running.png)
+
+* If the status is running as it is above, check the config file:
+```
+cd /etc/nginx/sites-available
+```
+* If using default configuration, run the following command and see if there are mistakes in the default configuration:
+```
+cat default
+```
+* If following this guide to set up the reverse proxy, view the following file instead:
+```
+cat node_proxy.conf
+```
+* If that configuration is accurate, revisit your playbook and make sure that **either** the default **or** the node_proxy.conf file is linked. For the reverse proxy, use the following :
+```yml
+ - name: Link nginx Node Reverse Proxy
+    become: yes
+    command:
+      cmd: ln -s /etc/nginx/sites-available/node_proxy.conf /etc/nginx/sites-enabled/node_proxy.conf
+```
+* For the default its:
+```yml
+- name: Link nginx Node Reverse Proxy
+    become: yes
+    command:
+      cmd: ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+```
+* Then make sure to restart and enable nginx
+```yml
+- name: Make sure nginx service is running
+    become: yes
+    service:
+      name: nginx
+      state: restarted
+      enabled: yes
+```
+2) `Tried running the script before importing the repository with the app folder` -> Destroy the web VE and realunch it, when you being provisioning it, run the playbook to import the repository before you run the app configuration playbook
+* In the gitbash terminal, destroy the web VE:
+```
+vagrant destroy web
+```
+* You will then be asked to confirm , `ENTER y`
+* Relaunch the web VE:
+```
+vagrant up web
+```
+
+
 
 
