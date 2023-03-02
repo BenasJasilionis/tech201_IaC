@@ -556,7 +556,74 @@ vagrant destroy web
 ```
 vagrant up web
 ```
-
+## Hybrid ansible
+* Automate process of making ec2 instance
+* Controller locally available, therefore need authentication to send request to AWS
+* Need to encrypt keys
+* Use ansible vault -> encrypts keys
+* Put keys into vault, use password on vault, use password instead of keys
+* Create a playbook that creates an ec2 instance
+* All of the instance information needs to be in the playbook
+* Need .pem file in playbook
+* Need to generate ssh key pair
+* call the key the same name as the pem file devops-tech201
+* Once controller has key, need to tell it which key to use
+* Get playbook to attach key to instance
+## Ansible vault
+* Provides security
+* Folder structure /etc/ansible/group_vars/all/pass.yml -> provide keys in .yml file
+* aws_access_key : key
+* aws_secret_key : secret key
+* use password: vagrant
+* File needs permissions: sudo chmod 400 file.pem
+* Copy .pub file to ec2 instance using yaml playbook
+* sudo ansible-playbook ec2.yml --ask-vault-pass --tags create_ec2
+## vi editor
+* press i until you see insert
+* To save :
+* Press `ESC -> :wq! -> ENTER`
+* sudo apt install tree
+* sudo ansible-vault create pass.yml
+* use vagrant password
+* sudo chmod 666 pass.yml
+* Force ubuntu to use python 3 -> `alias python=python3`
+## Setting up hybrid ansible with EC2 -> Installing dependencies
+**NOTE- All of these steps will be carried out in the control node/ controller VE**
+1) Update the machine:
+```
+sudo apt update
+```
+2) Install tree module to visualise file structure more clearly:
+```
+sudo apt install tree -y
+```
+3) Update your ansible repository:
+```
+sudo apt-add-repository --yes --update ppa:ansible/ansible
+```
+4) Install ansible:
+```
+sudo apt install ansible -y
+```
+5) Install python3 package manager:
+```
+sudo apt install python3-pip
+```
+6) Use the package manager to install aws command line:
+```
+pip3 install awscli
+```
+7) Use the package manager to install boto and boto3:
+```
+pip3 install boto boto3 -y
+```
+8) Update the machine:
+```
+sudo apt update
+```
+9) Upgrade the machine:
+```
+sudo
 
 
 
