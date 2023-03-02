@@ -623,7 +623,171 @@ sudo apt update
 ```
 9) Upgrade the machine:
 ```
-sudo
+sudo apt upgrade
+```
+10) Force ubuntu to use python3:
+```
+alias python=python3
+```
+## Securing AWS key in vault
+1) Navigate to the ansible directory:
+```
+cd /etc/ansible
+```
+2) Create the required folder structure:
+```
+mkdir /group_vars/all
+```
+3) Navigate to `all`:
+```
+cd /etc/ansible/group_vars/all
+```
+4) Make the vault:
+```
+ansible-vault create pass.yml
+```
+5) Press `i` until you see `insert`
+6) Type
+``` 
+aws_access_key: your aws access key
+```
+7) On another line, type:
+```
+aws_secret_key: your aws secret key
+```
+8) If it asks you for a password, set it to `vagrant` for ease of use
+9) Change the file permissions on `pass.yml`:
+```
+sudo chmod 666 pass.yml
+```
+## Importing aws .pem file and making ssh keys
+1) Navigate to the .ssh folder:
+```
+cd ~/.ssh
+```
+2) Copy the key in your `.pem` file in your gitbash that you use to sign into to aws
+3) Make a file with the same name in the controller node .ssh folder:
+```
+sudo nano devops-tech201
+```
+4) Inside the file, paster your `.pem` key
+5) Save and exit
+6) Change the key permissions so that it is secure:
+```
+sudo chmod 400 devops-tech201
+```
+7) Generate a new pair of ssh keys for use in the playbook. For ease of use, name the keys the same as the .pem file, for example, my .pem file is devops-tech201:
+```
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/devops-tech201
+```
+## Making the playbook
+1) Navigate to the ansible directory:
+```
+cd /etc/ansible
+```
+2) Make a playbook file:
+```
+sudo nano playbook.yml
+```
+3) Inside the playbook, enter the following code:
+```
+---
+
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars:
+    key_name: devops_tech201
+    region: eu-west-1
+    image: ami-0495f6e6ed224deb2
+    id: "benas_tech201_playbook_app"
+    sec_group: "sg-029fd90fcce43fc1f"
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+
+    - name: Facts
+      block:
+
+      - name: Get instances facts
+        ec2_instance_facts:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          region: "{{ region }}"
+        register: result
+
+      - name: Instances ID
+        debug:
+          msg: "ID: {{ item.instance_id }} - State: {{ item.state.name }} - Public DNS: {{ item.public_dns_name }}"
+        loop: "{{ result.instances }}"
+
+      tags: always
+
+
+    - name: Provisioning EC2 instances
+      block:
+
+      - name: Upload public key to AWS
+        ec2_key:
+          name: "{{ key_name }}"
+          key_material: "{{ lookup('file', '~/.ssh/{{ key_name }}.pub') }}"
+          region: "{{ region }}"
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+
+
+      - name: Provision instance(s)
+        ec2:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          key_name: "{{ key_name }}"
+          id: "{{ id }}"
+          group_id: "{{ sec_group }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: true
+          count: 1
+          instance_tags:
+            Name: benas_tech201_playbook_app
+
+      tags: ['never', 'create_ec2']
+```
+5) Replace the variables with your own
+6) Use the playbook to create the ec2 instance:
+```
+ansible-playbook playbook.yml --ask-vault-pass --tags create_ec2
+```
+7) When it asks you for the password, enter `vagrant`
+* The instance should now be made
+## Ping your EC2 Instance
+1) Navigate to your ansible hosts file:
+```
+sudo nano /etc/hosts/hosts
+```
+2) Add aws configuration line:
+```
+[aws]
+ec2-instance ansible_host=your.EC2.instance.public.ipv4.ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/your_aws_key.pem
+```
+3) Ping the EC2 instance:
+```
+sudo ansible -m ping aws
+```
+## Potential blockers-- python3 isnt being used
+* Add aline forcing ubuntu to use python 3 into your ansible hosts file:
+1) Navigate to ansible hosts:
+```
+sudo nano /etc/ansible/hosts
+```
+2) Force ubuntu to use python3 by entering this line:
+```
+[local]
+localhost ansible_python_interpreter=/usr/local/bin/python3
+```
+
+
 
 
 
